@@ -1,6 +1,16 @@
 use sqlx::{PgPool, Executor, PgConnection, Connection};
 use std::net::TcpListener;
 use zero2prod::configuration::{self, DatabaseSettings};
+use zero2prod::telemetry;
+
+// Ensure that the `tracing` stack is only initialised once using `lazy_static`
+lazy_static::lazy_static! {
+    static ref TRACING: () = {
+        let filter = if std::env::var("TEST_LOG").is_ok() { "debug" } else { "" };
+        let subscriber = telemetry::get_subscriber("test".into(), filter.into());
+        telemetry::init_subscriber(subscriber);
+    };
+}
 
 pub struct TestApp {
     pub address: String,
@@ -8,6 +18,8 @@ pub struct TestApp {
 }
 
 async fn spawn_app() -> TestApp {
+    lazy_static::initialize(&TRACING);
+
     // bind to a randomly assigned port
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
 
